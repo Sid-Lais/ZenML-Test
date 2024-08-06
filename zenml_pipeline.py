@@ -1,51 +1,37 @@
 from zenml import pipeline, step
-from random import randint
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+
+# Step to load data
+@step
+def load_data() -> tuple:
+    iris = load_iris()
+    X_train, X_test, y_train, y_test = train_test_split(iris.data, iris.target, test_size=0.2, random_state=42)
+    return X_train, X_test, y_train, y_test
 
 # Step to train the model
 @step
-def training_model(model: str) -> int:
-    accuracy = randint(1, 10)
-    print(f"Model {model} trained with accuracy: {accuracy}")
+def train_model(X_train: list, y_train: list) -> RandomForestClassifier:
+    model = RandomForestClassifier(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    return model
+
+# Step to evaluate the model
+@step
+def evaluate_model(model: RandomForestClassifier, X_test: list, y_test: list) -> float:
+    predictions = model.predict(X_test)
+    accuracy = accuracy_score(y_test, predictions)
     return accuracy
-
-# Step to choose the best model
-@step
-def choosing_best_model(training_model_A: int, training_model_B: int, training_model_C: int) -> str:
-    accuracies = [training_model_A, training_model_B, training_model_C]
-    print(f"Accuracies: {accuracies}")
-    if max(accuracies) > 8:
-        return 'accurate'
-    return 'inaccurate'
-
-# Step for accurate result
-@step
-def accurate() -> None:
-    print("accurate")
-
-# Step for inaccurate result
-@step
-def inaccurate() -> None:
-    print("inaccurate")
 
 # Define the ZenML pipeline
 @pipeline
-def zenml_pipeline():
-    model_A = training_model(model='A')
-    model_B = training_model(model='B')
-    model_C = training_model(model='C')
-
-    best_model_decision = choosing_best_model(
-        training_model_A=model_A,
-        training_model_B=model_B,
-        training_model_C=model_C
-    )
-
-    if best_model_decision == 'accurate':
-        accurate()
-    else:
-        inaccurate()
+def ml_workflow_pipeline():
+    X_train, X_test, y_train, y_test = load_data()
+    model = train_model(X_train, y_train)
+    accuracy = evaluate_model(model, X_test, y_test)
+    print(f"Model accuracy: {accuracy}")
 
 if __name__ == "__main__":
-    # Run the pipeline
-    zenml_pipeline()
-
+    ml_workflow_pipeline().run()
